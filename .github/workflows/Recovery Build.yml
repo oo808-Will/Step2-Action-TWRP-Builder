@@ -4,41 +4,41 @@ on:
   workflow_dispatch:
     inputs:
       MANIFEST_URL:
-        description: 'MANIFEST_URL (if want to use SSH keys, use git@github.com:XXXXX)'
+        description: '源地址 (if want to use SSH keys, use git@github.com:XXXXX)'
         required: true
         default: 'https://github.com/minimal-manifest-twrp/platform_manifest_twrp_aosp'
       MANIFEST_BRANCH:
-        description: 'MANIFEST_BRANCH'
+        description: '源分支'
         required: true
         default: 'twrp-12.1'
       DEVICE_TREE_URL:
-        description: 'DEVICE_TREE_URL'
+        description: '设备树地址'
         required: true
         default: 'https://github.com/TeamWin/android_device_asus_I003D'
       DEVICE_TREE_BRANCH:
-        description: 'DEVICE_TREE_BRANCH'
+        description: '设备树分支'
         required: true
         default: 'android-12.1'
       DEVICE_PATH:
-        description: 'DEVICE_PATH'
+        description: '设备位置'
         required: true
         default: 'device/asus/I003D'
       COMMON_TREE_URL:
-        description: 'COMMON_TREE_URL (if no common tree, leave blank)'
+        description: '常用树地址_URL (if no common tree, leave blank)'
         required: false
       COMMON_PATH:
-        description: 'COMMON_PATH (if no common tree, leave blank)'
+        description: '常见树位置 (if no common tree, leave blank)'
         required: false
       DEVICE_NAME:
-        description: 'DEVICE_NAME'
+        description: '设备名称'
         required: true
         default: 'I003D'
       MAKEFILE_NAME:
-        description: 'MAKEFILE_NAME'
+        description: 'Makefile 名称'
         required: true
         default: 'twrp_I003D'
       BUILD_TARGET:
-        description: 'BUILD_TARGET'
+        description: '构建目标分区'
         required: true
         default: 'recovery'
 
@@ -49,7 +49,7 @@ jobs:
     permissions:
       contents: write
     steps:
-    - name: Display Run Parameters
+    - name: 显示运行参数
       run: |
         echo "::group::User Environment Variables"
         echo "Manifest URL: ${{ github.event.inputs.MANIFEST_URL }}"
@@ -63,26 +63,26 @@ jobs:
         echo "::endgroup::"
  
     # You might want to Checkout your repo first, but not mandatory
-    - name: Check Out
+    - name: 检查
       uses: actions/checkout@v3
     # Cleanup The Actions Workspace Using Custom Composite Run Actions
-    - name: Cleanup
+    - name: 清理
       uses: rokibhasansagar/slimhub_actions@main
       # That's it! Now use your normal steps
 
-    - name: Prepare the environment
+    - name: 准备环境
       run: |
         sudo apt update
         sudo apt -y upgrade
         sudo apt -y install gperf gcc-multilib gcc-10-multilib g++-multilib g++-10-multilib libc6-dev lib32ncurses5-dev x11proto-core-dev libx11-dev tree lib32z-dev libgl1-mesa-dev libxml2-utils xsltproc bc ccache lib32readline-dev lib32z1-dev liblz4-tool libncurses5-dev libsdl1.2-dev libwxgtk3.0-gtk3-dev libxml2 lzop pngcrush schedtool squashfs-tools imagemagick libbz2-dev lzma ncftp qemu-user-static libstdc++-10-dev libncurses5 python3
 
-    - name: Install OpenJDK
+    - name: 安装OpenJDK
       uses: actions/setup-java@v3
       with:
         distribution: 'zulu'
         java-version: '8'
 
-    - name: Setup SSH Keys
+    - name: 设置SSH密钥
       if: ${{ startsWith(github.event.inputs.MANIFEST_URL, 'git@github.com') || 
           startsWith(github.event.inputs.DEVICE_TREE_URL, 'git@github.com') ||
           startsWith(github.event.inputs.COMMON_TREE_URL, 'git@github.com') }}
@@ -92,14 +92,14 @@ jobs:
             ${{ secrets.SSH_PRIVATE_KEY }}
 
 
-    - name: Install repo
+    - name: 安装仓库 repo
       run: |
         mkdir ~/bin
         curl https://storage.googleapis.com/git-repo-downloads/repo > ~/bin/repo
         chmod a+x ~/bin/repo
         sudo ln -sf ~/bin/repo /usr/bin/repo
       
-    - name: Initialize repo
+    - name: 初始化 repo
       run: |
         mkdir workspace
         cd workspace
@@ -109,17 +109,17 @@ jobs:
         repo init --depth=1 -u ${{ github.event.inputs.MANIFEST_URL }} -b ${{ github.event.inputs.MANIFEST_BRANCH }}
       id: pwd
           
-    - name: Repo Sync
+    - name: Repo 同步
       run: |
         repo sync -j$(nproc --all) --force-sync
       working-directory: workspace
       
-    - name: Clone device tree
+    - name: 克隆设备树
       run: |
         git clone ${{ github.event.inputs.DEVICE_TREE_URL }} -b ${{ github.event.inputs.DEVICE_TREE_BRANCH }} ./${{ github.event.inputs.DEVICE_PATH }}
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
 
-    - name: Clone common tree
+    - name: 克隆普通树
       if: |
         github.event.inputs.COMMON_TREE_URL != null
         && github.event.inputs.COMMON_PATH != null
@@ -127,7 +127,7 @@ jobs:
         git clone ${{ github.event.inputs.COMMON_TREE_URL }} -b ${{ github.event.inputs.DEVICE_TREE_BRANCH }} ./${{ github.event.inputs.COMMON_PATH }}
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
 
-    - name: Check Build Tree
+    - name: 检查构建树
       uses: haya14busa/action-cond@v1
       id: buildtree
       with:
@@ -135,14 +135,14 @@ jobs:
         if_true: twrp
         if_false: omni
 
-    - name: Sync Device Dependencies
+    - name: 同步设备依赖关系
       run: |
         bash ${GITHUB_WORKSPACE}/scripts/convert.sh ${{ github.event.inputs.DEVICE_PATH }}/${{ steps.buildtree.outputs.value }}.dependencies
         repo sync -j$(nproc --all)
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
       continue-on-error: true
 
-    - name: Set Swap Space
+    - name: 设置交换空间
       uses: pierotofy/set-swap-space@master
       with:
         swap-size-gb: 12
@@ -154,8 +154,8 @@ jobs:
         lunch ${{ github.event.inputs.MAKEFILE_NAME }}-eng && make clean && make ${{ github.event.inputs.BUILD_TARGET }}image -j$(nproc --all)
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
 
-    - name: Upload to Release
-      uses: softprops/action-gh-release@v1
+    - name: 上传以发布
+      uses: softprops/action-gh-release@v2
       with:
         files: | 
           workspace/out/target/product/${{ github.event.inputs.DEVICE_NAME }}/${{ github.event.inputs.BUILD_TARGET }}.img
